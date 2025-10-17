@@ -1,0 +1,141 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <title>Mini-simulador — Ruta del material & Juego de precios (Valorización inorgánica)</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <style>
+    body{font-family:system-ui,Arial;margin:16px;background:#f7fafc;color:#0f172a}
+    h1{font-size:20px;margin-bottom:8px}
+    .canvas{display:flex;gap:16px;align-items:flex-start}
+    .map{width:560px;background:white;border-radius:10px;padding:12px;box-shadow:0 6px 18px rgba(2,6,23,0.08)}
+    .info{flex:1;min-width:320px}
+    .node{padding:10px;border-radius:8px;margin:8px 0;background:#eef2ff;cursor:pointer;border:1px solid #c7d2fe}
+    .hotspot{display:flex;gap:8px;align-items:center}
+    .hotspot .dot{width:12px;height:12px;border-radius:50%}
+    .house{background:#fff7ed;border:1px solid #ffd8a8}
+    .curb{background:#ecfeff;border:1px solid #bbf7d0}
+    .collection{background:#f0fdf4;border:1px solid #bbf7d0}
+    .acopio{background:#eef2ff;border:1px solid #c7d2fe}
+    .buyer{background:#fff1f2;border:1px solid #fecaca}
+    .panel{background:white;padding:12px;border-radius:8px;box-shadow:0 6px 12px rgba(2,6,23,0.06);margin-bottom:12px}
+    .game input, .game select{padding:6px;margin:6px 0;width:100%}
+    .btn{display:inline-block;padding:8px 12px;border-radius:8px;background:#6366f1;color:white;border:none;cursor:pointer}
+    .small{font-size:13px;color:#475569}
+  </style>
+</head>
+<body>
+  <h1>Mini-simulador: Ruta del material & Juego de precios — Valorización inorgánica (Pereira)</h1>
+  <div class="canvas">
+    <div class="map">
+      <div class="panel">
+        <strong>Mapa de la ruta (clic en cada paso)</strong>
+        <p class="small">Interactúa para ver qué ocurre en cada eslabón: responsabilidades, tipologías de material, tiempos y costos asociados.</p>
+      </div>
+
+      <div class="node house hotspot" data-id="house">
+        <strong>1. Casa — separación en la fuente</strong>
+        <div class="small">Material: cartón, PET cristal/colores, latas, aluminio, chatarra. Preparación: limpio, seco y aplastado (cartón/PET compactado).</div>
+      </div>
+
+      <div class="node curb hotspot" data-id="curb">
+        <strong>2. Acopio vecinal / punto de entrega</strong>
+        <div class="small">Sistema puerta a puerta, puntos comunitarios o rutas de recicladores. Ventajas: reduce transporte y mezcla.</div>
+      </div>
+
+      <div class="node collection hotspot" data-id="collection">
+        <strong>3. Recolectores / recicladores (formalizados)</strong>
+        <div class="small">Pesaje, primera clasificación, compactación ligera. Registro y trazabilidad (acta, conteo kg).</div>
+      </div>
+
+      <div class="node acopio hotspot" data-id="acopio">
+        <strong>4. Centro de acopio (planta de transferencia)</strong>
+        <div class="small">Clasificación fina, lavados (si aplica), beneficiado (compactado/peletizado), almacenamiento por calidad y lote.</div>
+      </div>
+
+      <div class="node buyer hotspot" data-id="buyer">
+        <strong>5. Comprador / industria local</strong>
+        <div class="small">Empresas recicladoras, chatarreros, compradores industriales (cartón para cartonerías, PET para reciclaje, aluminio para fundición).</div>
+      </div>
+
+      <div class="panel small" id="detail">Haz clic en un paso para ver detalles operativos, tiempos y recomendaciones.</div>
+    </div>
+
+    <div class="info">
+      <div class="panel">
+        <strong>Juego — Precio según calidad</strong>
+        <div class="game">
+          <label>Material</label>
+          <select id="material">
+            <option value="PET">PET (cristal)</option>
+            <option value="Carton">Cartón (higiénico/limpio)</option>
+            <option value="Aluminio">Aluminio (latas)</option>
+            <option value="Chatarra">Chatarra (metales ferrosos)</option>
+          </select>
+
+          <label>Calidad</label>
+          <select id="quality">
+            <option value="clean">Limpio & seco</option>
+            <option value="contaminated">Contaminado (con residuos orgánicos)</option>
+            <option value="compact">Compactado / prensado</option>
+          </select>
+
+          <label>Kilos</label>
+          <input id="kilos" type="number" value="10" min="1" />
+
+          <button class="btn" id="calc">Calcular ingreso estimado</button>
+          <div id="resultado" class="small" style="margin-top:8px"></div>
+        </div>
+      </div>
+
+      <div class="panel">
+        <strong>Indicadores rápidos (short / medium)</strong>
+        <ul class="small">
+          <li>Toneladas acopiadas / mes</li>
+          <li>% separación en fuente (meta 30% en 2 años)</li>
+          <li>Ingresos promedio por reciclador (COP/kg)</li>
+          <li>Tiempo desde recolección hasta venta (días)</li>
+        </ul>
+      </div>
+
+      <div class="panel">
+        <strong>Instrucciones</strong>
+        <p class="small">Abre este archivo en tu navegador. El mini-simulador es autocontenible: clic en pasos del mapa para leer recomendaciones; usa el juego para ver cómo afecta la calidad al precio.</p>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const detail = document.getElementById('detail');
+    const nodes = document.querySelectorAll('.hotspot');
+    const priceTable = {
+      PET: {clean: 1200, contaminated: 400, compact:1500},
+      Carton: {clean: 400, contaminated: 120, compact:500},
+      Aluminio: {clean: 5400, contaminated: 2500, compact:5400},
+      Chatarra: {clean: 780, contaminated: 400, compact:800}
+    };
+
+    const texts = {
+      house: '<strong>Casa — separación en la fuente</strong><br>Recomendaciones: bolsas/contendedores separados; etiquetas; programas de educación; incentivo mediante bonos o descuentos por reciclaje.',
+      curb: '<strong>Punto vecinal</strong><br>Ideal: compactadores pequeños, báscula, registro digital sencillo (app o Excel). Tiempo objetivo: 0-1 días en punto.',
+      collection: '<strong>Recolectores</strong><br>Formalizar con cooperativas; pagar por kg; rutas optimizadas; seguridad laboral. Recomendado: microbasculas y registro por jornada.',
+      acopio: '<strong>Centro de acopio — funciones</strong><br>Recepción, clasificación fina, beneficiado (compactado), pesaje, almacenamiento por lote y calidad, pesaje y factura para venta. Recomendado layout: zona de descarga, clasificación, prensado, almacenamiento, oficinas, báscula y patio de maniobras.',
+      buyer: '<strong>Compradores</strong><br>Perfil: cartonerías (cartón), plantas de reciclaje PET, chatarreros y fundiciones (metales). Negociar contratos por lote y frecuencia (semanal/quincenal).'
+    };
+
+    nodes.forEach(n=>n.addEventListener('click',()=>{
+      detail.innerHTML = texts[n.dataset.id] || 'Detalle no disponible';
+    }));
+
+    document.getElementById('calc').addEventListener('click',()=>{
+      const mat = document.getElementById('material').value;
+      const qual = document.getElementById('quality').value;
+      const kilos = Number(document.getElementById('kilos').value) || 0;
+      const unit = priceTable[mat][qual] || 0;
+      const total = unit * kilos;
+      const msg = `<strong>Estimado:</strong> Precio unitario COP/kg = ${unit.toLocaleString()} COP. Ingreso por ${kilos} kg = ${total.toLocaleString()} COP.`;
+      document.getElementById('resultado').innerHTML = msg;
+    });
+  </script>
+</body>
+</html>
